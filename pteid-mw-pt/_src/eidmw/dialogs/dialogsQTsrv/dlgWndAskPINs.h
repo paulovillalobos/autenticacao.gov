@@ -61,8 +61,8 @@ private:
 	unsigned int m_ulPinMaxLen;
 	unsigned int m_ulPin2Flags;
 	bool m_UseKeypad;
-	QRegExpValidator *m_Pin1Validator;
-	QRegExpValidator *m_Pin2Validator;
+	QRegularExpressionValidator *m_Pin1Validator;
+	QRegularExpressionValidator *m_Pin2Validator;
 
 private slots:
 	void on_txtOldPIN_textChanged(const QString &);

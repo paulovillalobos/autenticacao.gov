@@ -15,7 +15,7 @@
 #include <QString>
 #include <QVector>
 #include <QDate>
-#include <QRegExp>
+#include <QRegularExpression>
 #include <cstdio>
 #include <QQuickImageProvider>
 #include <QDesktopServices>
@@ -2885,9 +2885,9 @@ void GAPI::getSCAPEntities() {
 bool isSpecialValidity(QString value) {
 
 	// Search AAAA/MM/DD, AAAA-MM-DD, AAAA MM DD
-	QRegExp dateFormat("(9999|99|12|31)(/|-| *)(9999|99|12|31)(/|-| *)(9999|99|12|31)");
+	QRegularExpression dateFormat("(9999|99|12|31)(/|-| *)(9999|99|12|31)(/|-| *)(9999|99|12|31)");
 
-	return dateFormat.indexIn(value) != -1;
+	return dateFormat.match(value).hasMatch();
 }
 
 static std::map<std::string, std::vector<std::string>>
@@ -3044,8 +3044,8 @@ void GAPI::getSCAPCompanyAttributes(bool useOAuth) {
 }
 
 bool GAPI::isAttributeExpired(std::string &date, std::string &supplier) {
-	QRegExp dateFormat("^\\d{4}-\\d{2}-\\d{2}$"); // xsd:date format
-	if (date.empty() || dateFormat.indexIn(date.c_str()) == -1) {
+	QRegularExpression dateFormat(QRegularExpression::anchoredPattern("\\d{4}-\\d{2}-\\d{2}")); // xsd:date format
+	if (date.empty() || !dateFormat.match(date.c_str()).hasMatch()) {
 		PTEID_LOG(eIDMW::PTEID_LOG_LEVEL_DEBUG, "eidgui",
 				  "%s: Bad date format in validity of attribute supplied by: '%s' -> '%s'", __FUNCTION__,
 				  supplier.c_str(), date.c_str());

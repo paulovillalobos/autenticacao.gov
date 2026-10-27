@@ -25,7 +25,7 @@
 
 #include "dlgWndBadPIN.h"
 #include "../langUtil.h"
-#include <QDesktopWidget>
+#include <QScreen>
 
 #include <iostream>
 using namespace std;
@@ -99,7 +99,8 @@ QPushButton:hover{background-color: #2C3DAC}");
 	ui.lblCenter->setWordWrap(true);
 
 	Type_WndGeometry WndGeometry;
-	if (getWndCenterPos(pParentWndGeometry, QApplication::desktop()->width(), QApplication::desktop()->height(),
+	const QRect desktop = QGuiApplication::primaryScreen()->virtualGeometry();
+	if (getWndCenterPos(pParentWndGeometry, desktop.width(), desktop.height(),
 						this->width(), this->height(), &WndGeometry)) {
 		this->move(WndGeometry.x, WndGeometry.y);
 	} /* if ( getWndCenterPos( pParentWndGeometry, ... ) ) */

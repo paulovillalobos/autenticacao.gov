@@ -26,7 +26,7 @@
 
 #include "dlgWndPinpadInfo.h"
 #include "../langUtil.h"
-#include <QDesktopWidget>
+#include <QScreen>
 #include <QIcon>
 #include <QMovie>
 
@@ -101,7 +101,8 @@ dlgWndPinpadInfo::dlgWndPinpadInfo(unsigned long ulHandle, DlgPinOperation opera
 	m_ulHandle = ulHandle;
 
 	Type_WndGeometry WndGeometry;
-	if (getWndCenterPos(pParentWndGeometry, QApplication::desktop()->width(), QApplication::desktop()->height(),
+	const QRect desktop = QGuiApplication::primaryScreen()->virtualGeometry();
+	if (getWndCenterPos(pParentWndGeometry, desktop.width(), desktop.height(),
 						this->width(), this->height(), &WndGeometry)) {
 		parent->move(WndGeometry.x, WndGeometry.y);
 	}

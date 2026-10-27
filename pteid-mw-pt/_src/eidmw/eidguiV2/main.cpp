@@ -21,7 +21,6 @@
 #include "gapi.h"
 #include "eidlib.h"
 #include "singleapplication.h"
-#include <QDesktopWidget>
 #include <QCommandLineParser>
 #include "pteidversions.h"
 #include "LogBase.h"

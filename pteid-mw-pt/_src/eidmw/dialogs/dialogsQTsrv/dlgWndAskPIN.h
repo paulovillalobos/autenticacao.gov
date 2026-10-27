@@ -49,7 +49,7 @@ private:
 	unsigned int m_ulPinMinLen;
 	unsigned int m_ulPinMaxLen;
 	Ui::dlgWndAskPINClass ui;
-	QRegExpValidator *m_PinValidator;
+	QRegularExpressionValidator *m_PinValidator;
 };
 
 #endif // DLGWNDASKPIN_H

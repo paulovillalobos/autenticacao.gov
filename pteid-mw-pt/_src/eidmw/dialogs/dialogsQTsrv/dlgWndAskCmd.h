@@ -56,8 +56,8 @@ private:
 	unsigned int m_ulIdMaxLen;
 	unsigned int m_ulCodeMinLen;
 	unsigned int m_ulCodeMaxLen;
-	QRegExpValidator *m_IdValidator;
-	QRegExpValidator *m_CodeValidator;
+	QRegularExpressionValidator *m_IdValidator;
+	QRegularExpressionValidator *m_CodeValidator;
 
 private slots:
 	void on_txtMobile_textChanged(const QString &);
