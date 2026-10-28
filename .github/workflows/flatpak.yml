@@ -1,0 +1,37 @@
+name: Flatpak
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  flatpak:
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.11
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: autenticacao-gov.flatpak
+          manifest-path: pteid-mw-pt/_src/eidmw/pt.gov.autenticacao.yml
+          cache-key: flatpak-builder-${{ github.sha }}
+
+      # Start the app without a display or a card reader and keep what it prints
+      - name: Start the app
+        run: |
+          flatpak install --user -y --noninteractive autenticacao-gov.flatpak
+          flatpak run --env=QT_QPA_PLATFORM=offscreen --env=QT_QUICK_BACKEND=software pt.gov.autenticacao > app.log 2>&1 &
+          pid=$!
+          sleep 25
+          if kill -0 "$pid" 2>/dev/null; then echo "still running after 25 s"; kill "$pid"; else echo "::error::the app exited"; fi
+          cat app.log
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flatpak-app-log
+          path: app.log
+          if-no-files-found: ignore

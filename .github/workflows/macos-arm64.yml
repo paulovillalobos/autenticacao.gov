@@ -1,0 +1,117 @@
+name: macOS arm64
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        qt: [6]
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Homebrew dependencies
+        run: |
+          brew install openssl@3 curl libzip xerces-c xml-security-c openjpeg libpng cjson \
+            freetype fontconfig jpeg-turbo little-cms2 cmake ninja pkg-config autoconf automake libtool
+          if [ "${{ matrix.qt }}" = 5 ]; then
+            brew install qt@5
+            echo "$(brew --prefix qt@5)/bin" >> "$GITHUB_PATH"
+          else
+            brew install qtbase qtdeclarative qt5compat qtsvg qttools
+          fi
+
+      # Same layout as $HOME/mw-thirdparty-libs on AMA's build machine (see _Builds/eidcommon.mak)
+      - name: Third-party layout
+        run: |
+          D="$HOME/mw-thirdparty-libs"
+          mkdir -p "$D"
+          ln -s "$(brew --prefix openssl@3)" "$D/openssl-3"
+          ln -s "$(brew --prefix libzip)" "$D/libzip"
+          ln -s "$(brew --prefix curl)" "$D/libcurl"
+          ln -s "$(brew --prefix xml-security-c)" "$D/xml-security-c"
+          ln -s "$(brew --prefix xerces-c)" "$D/xerces-c-3.2.4"
+          ln -s "$(brew --prefix libpng)" "$D/libpng"
+          mkdir -p "$D/openjpeg/include"
+          ln -s "$(brew --prefix openjpeg)/include/openjpeg-2.5" "$D/openjpeg/include/openjpeg-2.4"
+          ln -s "$(brew --prefix openjpeg)/lib" "$D/openjpeg/lib"
+          mkdir -p "$D/cJSON-1.7.15/include"
+          ln -s "$(brew --prefix cjson)/include/cjson" "$D/cJSON-1.7.15/include/cjson"
+          ln -s "$(brew --prefix cjson)/include/cjson/cJSON.h" "$D/cJSON-1.7.15/include/cJSON.h"
+          ln -s "$(brew --prefix cjson)/lib" "$D/cJSON-1.7.15/lib"
+
+      - name: OpenPACE
+        run: |
+          curl -fsSL -o openpace.tar.gz https://github.com/frankmorgner/openpace/releases/download/1.1.3/openpace-1.1.3.tar.gz
+          tar xf openpace.tar.gz
+          cd openpace-1.1.3
+          PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig" ./configure --prefix="$HOME/mw-thirdparty-libs/openpace"
+          make -j"$(sysctl -n hw.ncpu)"
+          make install
+
+      # Poppler 23.06, the version the macOS package ships, with the Qt frontend eidguiV2 uses
+      - name: Poppler with the Qt ${{ matrix.qt }} frontend
+        run: |
+          curl -fsSL -o poppler.tar.xz https://poppler.freedesktop.org/poppler-23.06.0.tar.xz
+          tar xf poppler.tar.xz
+          QT5=OFF; QT6=OFF; [ "${{ matrix.qt }}" = 5 ] && QT5=ON || QT6=ON
+          cmake -S poppler-23.06.0 -B poppler-build -G Ninja \
+            -DCMAKE_INSTALL_PREFIX="$HOME/mw-thirdparty-libs/poppler" -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5 2>/dev/null || brew --prefix)" \
+            -DENABLE_QT5=$QT5 -DENABLE_QT6=$QT6 -DENABLE_GLIB=OFF -DENABLE_CPP=OFF -DENABLE_UTILS=OFF \
+            -DENABLE_NSS3=OFF -DENABLE_GPGME=OFF -DENABLE_LIBCURL=OFF -DENABLE_BOOST=OFF -DENABLE_LIBTIFF=OFF \
+            -DBUILD_GTK_TESTS=OFF -DBUILD_QT5_TESTS=OFF -DBUILD_QT6_TESTS=OFF -DBUILD_CPP_TESTS=OFF -DBUILD_MANUAL_TESTS=OFF
+          cmake --build poppler-build
+          cmake --install poppler-build
+
+      # The libraries' .pro files ask for x86_64 and arm64; the Homebrew dependencies are arm64 only
+      - name: Build
+        working-directory: pteid-mw-pt/_src/eidmw
+        run: |
+          qmake -query QT_VERSION
+          for p in pteid-poppler/pteid-poppler.pro common/common.pro dialogs/dialogsQT/dialogsQT.pro \
+                   dialogs/dialogsQTsrv/dialogsQTsrv.pro cardlayer/cardlayer.pro pkcs11/pkcs11.pro \
+                   applayer/applayer.pro CMD/services/cmdServices.pro eidlib/eidlib.pro scap/scap.pro \
+                   eidguiV2/eidguiV2.pro; do
+            echo "::group::$p"
+            if ! (cd "$(dirname "$p")" && qmake -after "QMAKE_APPLE_DEVICE_ARCHS=arm64" "$(basename "$p")" && make -j"$(sysctl -n hw.ncpu)"); then
+              echo "::endgroup::"
+              echo "::error::build failed in $p"
+              exit 1
+            fi
+            echo "::endgroup::"
+          done
+
+      - name: Architectures
+        working-directory: pteid-mw-pt/_src/eidmw
+        run: |
+          for f in lib/*.dylib bin/pteiddialogsQTsrv.app/Contents/MacOS/pteiddialogsQTsrv eidguiV2/eidguiV2.app/Contents/MacOS/eidguiV2; do
+            [ -e "$f" ] && echo "$(lipo -archs "$f")  $f"
+          done
+
+      # Start the app without a card reader, keep its output and a screenshot
+      - name: Start the app
+        if: matrix.qt == 6
+        working-directory: pteid-mw-pt/_src/eidmw
+        run: |
+          export DYLD_LIBRARY_PATH="$PWD/lib:$HOME/mw-thirdparty-libs/poppler/lib"
+          ./eidguiV2/eidguiV2.app/Contents/MacOS/eidguiV2 > app.log 2>&1 &
+          pid=$!
+          sleep 25
+          screencapture -x app.png || true
+          if kill -0 "$pid" 2>/dev/null; then echo "still running after 25 s"; kill "$pid"; else echo "::error::the app exited"; fi
+          cat app.log
+          grep -iE "qml|warning|error" app.log || true
+
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.qt == 6
+        with:
+          name: app-qt6
+          path: |
+            pteid-mw-pt/_src/eidmw/app.log
+            pteid-mw-pt/_src/eidmw/app.png
+          if-no-files-found: ignore
