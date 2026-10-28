@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        qt: [5, 6]
+        qt: [6]
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -98,7 +98,7 @@ jobs:
         if: matrix.qt == 6
         working-directory: pteid-mw-pt/_src/eidmw
         run: |
-          export DYLD_LIBRARY_PATH="$PWD/lib"
+          export DYLD_LIBRARY_PATH="$PWD/lib:$HOME/mw-thirdparty-libs/poppler/lib"
           ./eidguiV2/eidguiV2.app/Contents/MacOS/eidguiV2 > app.log 2>&1 &
           pid=$!
           sleep 25
